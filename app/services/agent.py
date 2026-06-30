@@ -113,10 +113,23 @@ async def run_agent_stream(
         # image_url content with error code 1210.
         step_model = VISION_MODEL if (image_url and step_num == 1) else default_model
 
+        # For text-only models (step 2+), strip image_url from user message
+        step_messages = messages
+        if image_url and step_num > 1:
+            # Remove image_url from the user message, keep only text
+            step_messages = []
+            for msg in messages:
+                if msg["role"] == "user" and isinstance(msg["content"], list):
+                    # Filter out image_url items, keep only text
+                    text_content = next((item["text"] for item in msg["content"] if item["type"] == "text"), "")
+                    step_messages.append({"role": "user", "content": text_content})
+                else:
+                    step_messages.append(msg)
+
         try:
             response = await client.chat.completions.create(
                 model=step_model,
-                messages=messages,
+                messages=step_messages,
                 tools=TOOL_DEFINITIONS,
                 tool_choice="auto",
                 temperature=0.3,
