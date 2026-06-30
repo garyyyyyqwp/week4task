@@ -245,8 +245,16 @@ function renderChat(el) {
     </div>
 
     <div class="chat-input-area">
-      <textarea id="agent-question" placeholder="输入你的问题，例如：帮我查一下 Transformer 论文的提出时间，算一下距今多少天" rows="3"></textarea>
+      <textarea id="agent-question" placeholder="输入你的问题，例如：帮我查一下 Transformer 论文的提出时间，算一下距今多少天。也可以上传图片让 Agent 直接看图回答。" rows="3"></textarea>
       <button class="btn-send" id="btn-send" onclick="runAgentChat()">发送</button>
+    </div>
+    <div class="chat-controls" style="margin-top:0;margin-bottom:16px">
+      <label style="font-size:12px;color:var(--text-3);cursor:pointer;display:flex;align-items:center;gap:4px">
+        <span style="font-size:16px">📎</span> 上传图片（可选）
+        <input type="file" id="image-upload" accept="image/*" style="display:none" onchange="previewImage(this)">
+        <span id="image-preview-name" style="color:var(--accent-blue);max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
+        <button id="clear-image" onclick="clearImage(event)" style="font-size:11px;color:var(--accent-red);display:none;padding:2px 6px;border-radius:3px">✕ 清除</button>
+      </label>
     </div>
 
     <div id="agent-result"></div>
@@ -256,6 +264,40 @@ function renderChat(el) {
 function selectTemplate(btn) {
   document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
   btn.classList.add('active');
+}
+
+// ---------------------------------------------------------------
+// Image Upload Handling
+// ---------------------------------------------------------------
+let _imageBase64 = null;
+
+function previewImage(input) {
+  const file = input.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    _imageBase64 = e.target.result; // data:image/...;base64,...
+    const nameSpan = document.getElementById('image-preview-name');
+    const clearBtn = document.getElementById('clear-image');
+    if (nameSpan) {
+      nameSpan.textContent = file.name + ' (' + Math.round(file.size/1024) + 'KB)';
+    }
+    if (clearBtn) clearBtn.style.display = 'inline-block';
+    toast('图片已加载，Agent 将直接查看图片内容', 'info');
+  };
+  reader.readAsDataURL(file);
+}
+
+function clearImage(event) {
+  event.stopPropagation();
+  _imageBase64 = null;
+  const input = document.getElementById('image-upload');
+  const nameSpan = document.getElementById('image-preview-name');
+  const clearBtn = document.getElementById('clear-image');
+  if (input) input.value = '';
+  if (nameSpan) nameSpan.textContent = '';
+  if (clearBtn) clearBtn.style.display = 'none';
 }
 
 // ---------------------------------------------------------------
@@ -287,10 +329,14 @@ async function runAgentChat() {
   let stepCount = 0;
 
   try {
+    const body = { question, template, max_steps: maxSteps };
+    if (_imageBase64) {
+      body.image_base64 = _imageBase64;
+    }
     const response = await fetch(API + '/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ question, template, max_steps: maxSteps }),
+      body: JSON.stringify(body),
     });
 
     if (!response.ok) {
@@ -735,10 +781,14 @@ runAgentChat = async function() {
   stepCount = 0;
 
   try {
+    const body = { question, template, max_steps: maxSteps };
+    if (_imageBase64) {
+      body.image_base64 = _imageBase64;
+    }
     const response = await fetch(API + '/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ question, template, max_steps: maxSteps }),
+      body: JSON.stringify(body),
     });
 
     if (!response.ok) {

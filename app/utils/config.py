@@ -32,12 +32,12 @@ def get_env(key: str, default: str | None = None, required: bool = False) -> str
     return value
 
 
-# --- LLM (Text) ---
+# --- LLM (Multimodal Vision + Text, supports Function Calling) ---
 OPENAI_API_KEY: str = get_env("OPENAI_API_KEY", required=True)
 OPENAI_BASE_URL: str = get_env("OPENAI_BASE_URL", "https://open.bigmodel.cn/api/paas/v4/")
-OPENAI_MODEL: str = get_env("OPENAI_MODEL", "glm-4-flash")
+OPENAI_MODEL: str = get_env("OPENAI_MODEL", "glm-4.6v-flash")
 
-# --- Vision LLM ---
+# --- Vision LLM (deprecated: main model now handles vision directly) ---
 VISION_MODEL: str = get_env("VISION_MODEL", "glm-4.6v-flash")
 VISION_API_KEY: str = get_env("VISION_API_KEY", OPENAI_API_KEY)
 VISION_BASE_URL: str = get_env("VISION_BASE_URL", OPENAI_BASE_URL)

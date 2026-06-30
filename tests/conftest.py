@@ -173,7 +173,6 @@ def mock_agent_llm(monkeypatch):
         mock_results = {
             "search_knowledge_base": "[文本结果1] (来源: test.pdf, 相关度: 0.950)\nTransformer论文于2017年由Vaswani等人提出。",
             "search_web": "[网络搜索结果]\n查询: 测试\n深度学习是机器学习的重要分支。",
-            "analyze_image": "[图片分析结果]\n图片中包含6个模块。",
             "calculator": "[计算结果]\n表达式: test\n结果: 9",
             "get_current_time": "[当前时间]\n日期: 2026年06月27日\n时间: 14:30:00\n时区: Asia/Shanghai",
         }

@@ -41,12 +41,13 @@ async def agent_chat(request: AgentChatRequest):
     session_id = uuid.uuid4().hex[:12]
 
     async def event_generator():
+        image_url = request.image_url or request.image_base64
         async for event in run_agent_stream(
             question=request.question,
             session_id=session_id,
             template=request.template,
             max_steps=request.max_steps,
-            image_url=request.image_url,
+            image_url=image_url,
         ):
             yield event
 

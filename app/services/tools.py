@@ -1,7 +1,12 @@
-"""Agent Tools — 5 tools for the ReAct agent loop.
+"""Agent Tools — 4 tools for the ReAct agent loop.
 
 Tools are defined as OpenAI function definitions for LLM function calling.
 Each tool has a corresponding executor function dispatched by execute_tool().
+
+The analyze_image tool has been REMOVED — the main reasoning model
+(glm-4.6v-flash) is now multimodal and can see images directly via
+structured message content, eliminating the lossy "image → text summary →
+text model" pipeline.
 """
 
 import ast
@@ -61,27 +66,6 @@ TOOL_DEFINITIONS: list[dict] = [
                     },
                 },
                 "required": ["query"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "analyze_image",
-            "description": "分析图片内容。当用户上传图片或需要理解图片中的视觉信息时使用此工具。",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "image_url": {
-                        "type": "string",
-                        "description": "图片的URL或base64数据URI",
-                    },
-                    "question": {
-                        "type": "string",
-                        "description": "关于图片的具体问题",
-                    },
-                },
-                "required": ["image_url", "question"],
             },
         },
     },
@@ -280,46 +264,36 @@ async def execute_search_web(query: str) -> str:
     )
 
 
-async def execute_analyze_image(image_url: str, question: str) -> str:
-    """Analyze an image using the Vision LLM.
+async def execute_get_current_time(timezone_name: str = "Asia/Shanghai") -> str:
+    """Get the current date and time.
 
     Args:
-        image_url: Image URL or base64 data URI.
-        question: Question about the image.
+        timezone_name: Timezone name (e.g., 'Asia/Shanghai').
 
     Returns:
-        Vision LLM's analysis result as a string.
+        Formatted current time string.
     """
-    from app.services.llm import get_vision_client, get_vision_model
-
     try:
-        client = get_vision_client()
-        model = get_vision_model()
-
-        # Build the message with image content
-        content_parts = [
-            {"type": "text", "text": question},
-            {"type": "image_url", "image_url": {"url": image_url}},
-        ]
-
-        response = await client.chat.completions.create(
-            model=model,
-            messages=[
-                {
-                    "role": "system",
-                    "content": "你是一个图像分析助手。请仔细观察图片并回答用户的问题。回答要准确、简洁。",
-                },
-                {"role": "user", "content": content_parts},
-            ],
-            max_tokens=500,
+        from zoneinfo import ZoneInfo
+        tz = ZoneInfo(timezone_name)
+        now = datetime.now(tz)
+        return (
+            f"[当前时间]\n"
+            f"日期: {now.strftime('%Y年%m月%d日')}\n"
+            f"时间: {now.strftime('%H:%M:%S')}\n"
+            f"时区: {timezone_name}\n"
+            f"ISO格式: {now.isoformat()}"
         )
-
-        result = response.choices[0].message.content or "无法分析图片内容"
-        return f"[图片分析结果]\n{result}"
-
-    except Exception as e:
-        logger.error("analyze_image error: %s", e)
-        return f"图片分析出错: {str(e)}"
+    except Exception:
+        # Fallback to UTC if timezone not found
+        now = datetime.now(timezone.utc)
+        return (
+            f"[当前时间]\n"
+            f"日期: {now.strftime('%Y年%m月%d日')}\n"
+            f"时间: {now.strftime('%H:%M:%S')}\n"
+            f"时区: UTC\n"
+            f"ISO格式: {now.isoformat()}"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -422,38 +396,6 @@ async def execute_calculator(expression: str) -> str:
         return f"计算错误: 表达式无法计算"
 
 
-async def execute_get_current_time(timezone_name: str = "Asia/Shanghai") -> str:
-    """Get the current date and time.
-
-    Args:
-        timezone_name: Timezone name (e.g., 'Asia/Shanghai').
-
-    Returns:
-        Formatted current time string.
-    """
-    try:
-        from zoneinfo import ZoneInfo
-        tz = ZoneInfo(timezone_name)
-        now = datetime.now(tz)
-        return (
-            f"[当前时间]\n"
-            f"日期: {now.strftime('%Y年%m月%d日')}\n"
-            f"时间: {now.strftime('%H:%M:%S')}\n"
-            f"时区: {timezone_name}\n"
-            f"ISO格式: {now.isoformat()}"
-        )
-    except Exception:
-        # Fallback to UTC if timezone not found
-        now = datetime.now(timezone.utc)
-        return (
-            f"[当前时间]\n"
-            f"日期: {now.strftime('%Y年%m月%d日')}\n"
-            f"时间: {now.strftime('%H:%M:%S')}\n"
-            f"时区: UTC\n"
-            f"ISO格式: {now.isoformat()}"
-        )
-
-
 # ---------------------------------------------------------------------------
 # Tool Dispatcher
 # ---------------------------------------------------------------------------
@@ -461,7 +403,6 @@ async def execute_get_current_time(timezone_name: str = "Asia/Shanghai") -> str:
 _TOOL_EXECUTORS: dict[str, Any] = {
     "search_knowledge_base": execute_search_knowledge_base,
     "search_web": execute_search_web,
-    "analyze_image": execute_analyze_image,
     "calculator": execute_calculator,
     "get_current_time": execute_get_current_time,
 }

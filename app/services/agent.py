@@ -85,10 +85,15 @@ async def run_agent_stream(
 
     system_prompt = REACT_PROMPT_TEMPLATES.get(template, REACT_PROMPT_TEMPLATES["basic"])
 
-    # Build initial user message
-    user_content = question
+    # Build user message — images go directly into structured content
+    # so the multimodal model (glm-4.6v-flash) can SEE the image
+    # instead of reading a text description from a separate vision tool.
+    user_content: list[dict] = [{"type": "text", "text": question}]
     if image_url:
-        user_content += f"\n\n[用户提供了图片，可使用 analyze_image 工具分析: {image_url}]"
+        user_content.append({
+            "type": "image_url",
+            "image_url": {"url": image_url},
+        })
 
     messages: list[dict] = [
         {"role": "system", "content": system_prompt},

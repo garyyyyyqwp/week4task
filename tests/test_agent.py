@@ -1,4 +1,4 @@
-"""Agent endpoint tests — at least 5 test cases covering the core scenarios.
+"""Agent endpoint tests — covering the core scenarios.
 
 Tests:
 1. Basic chat (no tools) — simple question gets direct answer
@@ -8,6 +8,10 @@ Tests:
 5. Max steps limit — agent stops at limit
 6. Calculator safety — rejects dangerous expressions
 7. Session not found — 404 for missing session
+8. Search web query length limit
+9. Empty question returns 422
+10. List sessions endpoint
+11. Multimodal image in content — image structured as message content (not tool)
 """
 
 import json
@@ -260,6 +264,78 @@ async def test_agent_list_sessions(test_app, mock_simple_llm):
     assert "sessions" in data
     assert "total" in data
     assert isinstance(data["sessions"], list)
+
+
+# ---------------------------------------------------------------------------
+# Test 11: Multimodal — image passed directly as structured content
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_agent_multimodal_image_in_content(test_app, mock_simple_llm):
+    """Image should be passed as structured message content (not as tool hint).
+
+    Verifies that the multimodal refactor succeeded: images go directly
+    into the user message content so the vision model can SEE them,
+    rather than being described as text for a blind text model.
+    """
+    import base64
+    import os
+
+    # Create a tiny 1x1 PNG base64 (smallest valid PNG)
+    # This is a real PNG for a 1x1 red pixel
+    tiny_png_base64 = (
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="
+    )
+    image_data_uri = f"data:image/png;base64,{tiny_png_base64}"
+
+    response = await test_app.post(
+        "/api/v1/agent/chat",
+        json={
+            "question": "这张图片里有什么？",
+            "template": "basic",
+            "max_steps": 5,
+            "image_base64": image_data_uri,
+        },
+    )
+    assert response.status_code == 200
+
+    events = _parse_sse(response.text)
+    event_types = [e["type"] for e in events]
+
+    # Should complete successfully
+    assert "answer" in event_types
+    assert "done" in event_types
+
+    # analyze_image tool should NOT appear — the main model handles vision directly
+    action_events = [e for e in events if e["type"] == "action"]
+    for ae in action_events:
+        tool_name = ae["data"].get("tool", "")
+        assert tool_name != "analyze_image", (
+            f"analyze_image tool should not be called! "
+            f"Image should be handled directly by the multimodal model."
+        )
+
+
+# ---------------------------------------------------------------------------
+# Test 12: Multimodal image_url also works
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_agent_multimodal_image_url(test_app, mock_simple_llm):
+    """Image URL should also be passed as structured content."""
+    response = await test_app.post(
+        "/api/v1/agent/chat",
+        json={
+            "question": "请描述这张图片",
+            "template": "structured",
+            "max_steps": 5,
+            "image_url": "https://example.com/test-image.png",
+        },
+    )
+    assert response.status_code == 200
+
+    events = _parse_sse(response.text)
+    assert "answer" in [e["type"] for e in events]
 
 
 # ---------------------------------------------------------------------------

@@ -24,7 +24,12 @@ class AgentChatRequest(BaseModel):
     )
     image_url: str | None = Field(
         default=None,
-        description="可选图片URL（用于图片分析场景）",
+        description="可选图片URL（用于多模态场景，图片直达主模型推理）",
+    )
+    image_base64: str | None = Field(
+        default=None,
+        description="可选图片的base64编码（data:image/...;base64,...格式）。"
+                    "与image_url二选一，图片直接进入多模态主模型，零信息损失。",
     )
 
     @field_validator("template")
