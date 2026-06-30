@@ -19,7 +19,7 @@ from app.services.llm import get_client, get_model
 from app.services.tools import TOOL_DEFINITIONS, execute_tool
 from app.services.prompts import REACT_PROMPT_TEMPLATES
 from app.services.sessions import AgentStep, AgentResult, save_session
-from app.utils.config import AGENT_MAX_STEPS
+from app.utils.config import AGENT_MAX_STEPS, VISION_MODEL
 
 logger = logging.getLogger(__name__)
 
@@ -81,7 +81,7 @@ async def run_agent_stream(
     """
     max_steps = max_steps or AGENT_MAX_STEPS
     client = get_client()
-    model = get_model()
+    default_model = get_model()
 
     system_prompt = REACT_PROMPT_TEMPLATES.get(template, REACT_PROMPT_TEMPLATES["basic"])
 
@@ -108,9 +108,14 @@ async def run_agent_stream(
     while step_num < max_steps:
         step_num += 1
 
+        # Use vision model for the first step when an image is present,
+        # because the default text-only model (e.g. glm-4-flash) rejects
+        # image_url content with error code 1210.
+        step_model = VISION_MODEL if (image_url and step_num == 1) else default_model
+
         try:
             response = await client.chat.completions.create(
-                model=model,
+                model=step_model,
                 messages=messages,
                 tools=TOOL_DEFINITIONS,
                 tool_choice="auto",
